@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 100 25% 97%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    --primary: 100 90% 34%;
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 122 46% 33%;
+
+    --secondary: 100 30% 95%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 220 9% 91%;
+    --muted-foreground: 215 14% 64%;
+
+    --accent: 100 60% 90%;
+    --accent-foreground: 100 90% 25%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 100 90% 34%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 100 90% 34%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 100 30% 95%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 100 90% 34%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(100 90% 34%), hsl(105 65% 60%));
+    --shadow-card: 0 4px 20px rgba(0,0,0,0.05);
+    --shadow-hover: 0 8px 30px rgba(0,0,0,0.1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading text-heading;
+  }
+}
+
+@layer components {
+  .btn-gradient {
+    background: var(--gradient-primary);
+    @apply text-primary-foreground font-semibold uppercase tracking-wide rounded-xl px-6 py-3 transition-all duration-300 hover:scale-105 hover:shadow-lg;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1;
+    box-shadow: var(--shadow-card);
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-hover);
+  }
+  .section-padding {
+    @apply py-16 md:py-20;
+  }
+  .container-main {
+    @apply max-w-[1200px] mx-auto px-4;
+  }
+}
