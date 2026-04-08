@@ -4,6 +4,15 @@ const Product = require("./Product");
 
 const asObject = (doc) => (doc.toObject ? doc.toObject() : { ...doc });
 
+/** PKR display for admin APIs (matches storefront Intl formatting). */
+const formatPkrAmount = (n) =>
+  new Intl.NumberFormat("en-PK", {
+    style: "currency",
+    currency: "PKR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(n) || 0);
+
 const formatProduct = (doc) => {
   const o = asObject(doc);
   const id = String(o._id);
@@ -15,6 +24,30 @@ const formatProduct = (doc) => {
 const formatUser = (doc) => {
   const o = asObject(doc);
   return { id: String(o._id), name: o.name, email: o.email, role: o.role };
+};
+
+const formatUserProfile = (doc) => {
+  const o = asObject(doc);
+  const prefs = o.notificationPrefs && typeof o.notificationPrefs === "object" ? o.notificationPrefs : {};
+  return {
+    ...formatUser(doc),
+    addresses: (o.addresses || []).map((a) => ({
+      id: String(a._id),
+      label: a.label || "Home",
+      name: a.name,
+      address: a.address,
+      city: a.city,
+      zip: a.zip || "",
+      phone: a.phone || "",
+      isDefault: Boolean(a.isDefault),
+    })),
+    notificationPrefs: {
+      orderUpdates: prefs.orderUpdates !== false,
+      promotional: Boolean(prefs.promotional),
+      newProducts: prefs.newProducts !== false,
+      priceDrops: prefs.priceDrops !== false,
+    },
+  };
 };
 
 const formatReview = (doc) => {
@@ -80,7 +113,7 @@ const formatOrderAdmin = (orderLean) => {
     email: u?.email || "—",
     phone: o.shippingAddress?.phone || "—",
     product: first?.name || "—",
-    amount: `$${Number(o.totalAmount || 0).toFixed(2)}`,
+    amount: formatPkrAmount(o.totalAmount),
     status: o.status,
     date: created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     address: [o.shippingAddress?.address, o.shippingAddress?.city, o.shippingAddress?.zip].filter(Boolean).join(", ") || "—",
@@ -115,6 +148,7 @@ async function refreshProductReviewStats(productId) {
 module.exports = {
   formatProduct,
   formatUser,
+  formatUserProfile,
   formatReview,
   formatOrder,
   formatOrderAdmin,

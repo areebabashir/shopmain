@@ -2,12 +2,16 @@ import { Link, useNavigate } from "react-router-dom";
 import { Search, ShoppingCart, Heart, User, Menu, X, LayoutDashboard, Shield, LogOut } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreSettings } from "@/contexts/StoreSettingsContext";
 import { userInitials } from "@/lib/api";
 import { useState, useRef, useEffect } from "react";
 
 const Header = () => {
   const { totalItems } = useCart();
   const { user, logout } = useAuth();
+  const { settings } = useStoreSettings();
+  const brandName = settings.storeName?.trim() || "ShopVert";
+  const brandIconLetter = brandName.trim().slice(0, 1).toUpperCase() || "S";
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,9 +45,9 @@ const Header = () => {
       <div className="container-main flex items-center justify-between h-16 gap-4">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-heading font-bold text-sm">S</span>
+            <span className="text-primary-foreground font-heading font-bold text-sm">{brandIconLetter}</span>
           </div>
-          <span className="font-heading font-bold text-xl text-heading hidden sm:block">ShopVert</span>
+          <span className="font-heading font-bold text-xl text-heading hidden sm:block truncate max-w-[200px]">{brandName}</span>
         </Link>
 
         <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-xl">

@@ -44,7 +44,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems((p) => p.map((i) => i.product.id === id ? { ...i, quantity: qty } : i));
   }, []);
   const clearCart = useCallback(() => setItems([]), []);
-  const toggleWishlist = useCallback((id: number) => setWishlist((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]), []);
+  const toggleWishlist = useCallback((id: string) => setWishlist((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])), []);
 
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
   const totalPrice = items.reduce((s, i) => s + i.product.price * i.quantity, 0);

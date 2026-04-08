@@ -1,11 +1,15 @@
 import { Link } from "react-router-dom";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { formatPkr } from "@/lib/money";
+import { computeShippingPkr } from "@/lib/storeSettings";
+import { useStoreSettings } from "@/contexts/StoreSettingsContext";
 import { motion } from "framer-motion";
 
 const Cart = () => {
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
-  const shipping = totalPrice > 50 ? 0 : 5.99;
+  const { settings } = useStoreSettings();
+  const shipping = computeShippingPkr(totalPrice, "standard", settings).totalShipping;
 
   if (items.length === 0)
     return (
@@ -29,7 +33,7 @@ const Cart = () => {
               </Link>
               <div className="flex-1 min-w-0">
                 <Link to={`/product/${item.product.id}`} className="font-medium text-sm text-heading hover:text-primary transition-colors line-clamp-2">{item.product.name}</Link>
-                <p className="text-primary font-heading font-bold mt-1">${item.product.price}</p>
+                <p className="text-primary font-heading font-bold mt-1">{formatPkr(item.product.price)}</p>
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center border border-border rounded-lg">
                     <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="p-1.5 hover:bg-secondary rounded-l-lg"><Minus className="w-3 h-3" /></button>
@@ -46,12 +50,12 @@ const Cart = () => {
         <div className="bg-card rounded-2xl p-6 h-fit sticky top-20" style={{ boxShadow: "var(--shadow-card)" }}>
           <h3 className="font-heading font-semibold mb-4">Order Summary</h3>
           <div className="space-y-3 text-sm mb-4">
-            <div className="flex justify-between"><span className="text-body">Subtotal</span><span className="font-medium">${totalPrice.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span className="text-body">Shipping</span><span className="font-medium">{shipping === 0 ? "Free" : `$${shipping}`}</span></div>
-            {shipping === 0 && <p className="text-xs text-primary">🎉 You qualify for free shipping!</p>}
+            <div className="flex justify-between"><span className="text-body">Subtotal</span><span className="font-medium">{formatPkr(totalPrice)}</span></div>
+            <div className="flex justify-between"><span className="text-body">Shipping (est.)</span><span className="font-medium">{shipping === 0 ? "Free" : formatPkr(shipping)}</span></div>
+            {shipping === 0 && <p className="text-xs text-primary">Free standard shipping on this cart total.</p>}
           </div>
           <div className="border-t border-border pt-3 mb-6">
-            <div className="flex justify-between font-heading font-bold"><span>Total</span><span className="text-primary">${(totalPrice + shipping).toFixed(2)}</span></div>
+            <div className="flex justify-between font-heading font-bold"><span>Total (PKR)</span><span className="text-primary">{formatPkr(totalPrice + shipping)}</span></div>
           </div>
           <Link to="/checkout" className="btn-gradient block text-center w-full">Proceed to Checkout</Link>
         </div>

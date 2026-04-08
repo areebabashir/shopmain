@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { StoreSettingsProvider } from "@/contexts/StoreSettingsContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/layout/Layout";
 import Index from "./pages/Index";
@@ -29,6 +30,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <StoreSettingsProvider>
           <AuthProvider>
           <ChatWidget />
           <Routes>
@@ -68,6 +70,7 @@ const App = () => (
             } />
           </Routes>
           </AuthProvider>
+          </StoreSettingsProvider>
         </BrowserRouter>
       </CartProvider>
     </TooltipProvider>

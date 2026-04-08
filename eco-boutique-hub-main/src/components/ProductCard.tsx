@@ -2,6 +2,7 @@ import { Star, ShoppingCart, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/data/products";
+import { formatPkr } from "@/lib/money";
 import { motion } from "framer-motion";
 
 const ProductCard = ({ product, index = 0 }: { product: Product; index?: number }) => {
@@ -42,8 +43,8 @@ const ProductCard = ({ product, index = 0 }: { product: Product; index?: number 
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-heading font-bold text-primary">${product.price}</span>
-            {product.oldPrice && <span className="text-xs text-muted-foreground line-through">${product.oldPrice}</span>}
+            <span className="font-heading font-bold text-primary">{formatPkr(product.price)}</span>
+            {product.oldPrice != null && <span className="text-xs text-muted-foreground line-through">{formatPkr(product.oldPrice)}</span>}
             {discount > 0 && <span className="text-[10px] font-bold text-destructive">-{discount}%</span>}
           </div>
           <button onClick={() => addToCart(product)} className="p-2 rounded-xl bg-secondary hover:bg-primary hover:text-primary-foreground transition-all duration-300 opacity-0 group-hover:opacity-100">

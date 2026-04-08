@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { createOrder, initiateGatewayPayment } from "@/lib/api";
+import { formatPkr } from "@/lib/money";
+import { computeShippingPkr } from "@/lib/storeSettings";
+import { useStoreSettings } from "@/contexts/StoreSettingsContext";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
 
@@ -10,12 +13,30 @@ const steps = ["Shipping", "Delivery", "Payment"];
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const { settings } = useStoreSettings();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const shipping = totalPrice > 50 ? 0 : 5.99;
-
   const [form, setForm] = useState({ name: "", phone: "", address: "", city: "", zip: "", delivery: "standard", payment: "cod" });
+  const [shippingPrefilled, setShippingPrefilled] = useState(false);
+
+  useEffect(() => {
+    if (shippingPrefilled || !user?.addresses?.length) return;
+    const def = user.addresses.find((a) => a.isDefault) ?? user.addresses[0];
+    if (!def) return;
+    setForm((f) => ({
+      ...f,
+      name: def.name || f.name,
+      phone: def.phone || f.phone,
+      address: def.address || f.address,
+      city: def.city || f.city,
+      zip: def.zip || f.zip,
+    }));
+    setShippingPrefilled(true);
+  }, [user?.addresses, shippingPrefilled]);
+  const shipStandard = computeShippingPkr(totalPrice, "standard", settings);
+  const shipExpress = computeShippingPkr(totalPrice, "express", settings);
+  const shippingFee = (form.delivery === "express" ? shipExpress : shipStandard).totalShipping;
   const update = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   const handleSubmit = async () => {
@@ -28,8 +49,7 @@ const Checkout = () => {
       toast.error("Cart is empty");
       return;
     }
-    const extraDelivery = form.delivery === "express" ? 9.99 : 0;
-    const fee = shipping + extraDelivery;
+    const fee = computeShippingPkr(totalPrice, form.delivery === "express" ? "express" : "standard", settings).totalShipping;
     const payload = {
       items: items.map((i) => ({ productId: String(i.product.id), quantity: i.quantity })),
       shippingAddress: {
@@ -107,12 +127,12 @@ const Checkout = () => {
               <h2 className="font-heading font-semibold mb-2">Shipping Information</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InputField label="Full Name" field="name" placeholder="John Doe" />
-                <InputField label="Phone" field="phone" type="tel" placeholder="+1 234 567 890" />
+                <InputField label="Phone" field="phone" type="tel" placeholder="+92 300 1234567" />
               </div>
-              <InputField label="Address" field="address" placeholder="123 Main St" />
+              <InputField label="Address" field="address" placeholder="House / street, area" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InputField label="City" field="city" placeholder="New York" />
-                <InputField label="ZIP Code" field="zip" placeholder="10001" />
+                <InputField label="City" field="city" placeholder="Karachi, Lahore, Islamabad…" />
+                <InputField label="Postal code" field="zip" placeholder="74400" />
               </div>
             </div>
           )}
@@ -121,7 +141,10 @@ const Checkout = () => {
             <div>
               <h2 className="font-heading font-semibold mb-4">Delivery Option</h2>
               <div className="space-y-3">
-                {[{ id: "standard", label: "Standard Delivery", desc: "5-7 business days", price: "Free" }, { id: "express", label: "Express Delivery", desc: "1-2 business days", price: "$9.99" }].map((o) => (
+                {[
+                  { id: "standard", label: "Standard delivery", desc: "Typically 5–7 working days", price: shipStandard.totalShipping === 0 ? "Free" : formatPkr(shipStandard.totalShipping) },
+                  { id: "express", label: "Express delivery", desc: "Faster dispatch where available", price: shipExpress.totalShipping === 0 ? "Free" : formatPkr(shipExpress.totalShipping) },
+                ].map((o) => (
                   <label key={o.id} className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${form.delivery === o.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
                     <div className="flex items-center gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${form.delivery === o.id ? "border-primary" : "border-border"}`}>
@@ -182,17 +205,16 @@ const Checkout = () => {
                   <p className="text-xs text-heading line-clamp-1">{item.product.name}</p>
                   <p className="text-xs text-muted-foreground">x{item.quantity}</p>
                 </div>
-                <span className="text-xs font-medium">${(item.product.price * item.quantity).toFixed(2)}</span>
+                <span className="text-xs font-medium">{formatPkr(item.product.price * item.quantity)}</span>
               </div>
             ))}
           </div>
           <div className="border-t border-border pt-3 space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-body">Subtotal</span><span>${totalPrice.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span className="text-body">Shipping</span><span>{shipping === 0 ? "Free" : `$${shipping}`}</span></div>
-            {form.delivery === "express" && <div className="flex justify-between"><span className="text-body">Express</span><span>$9.99</span></div>}
+            <div className="flex justify-between"><span className="text-body">Subtotal</span><span>{formatPkr(totalPrice)}</span></div>
+            <div className="flex justify-between"><span className="text-body">Shipping</span><span>{shippingFee === 0 ? "Free" : formatPkr(shippingFee)}</span></div>
             <div className="flex justify-between font-heading font-bold pt-2 border-t border-border">
-              <span>Total</span>
-              <span className="text-primary">${(totalPrice + shipping + (form.delivery === "express" ? 9.99 : 0)).toFixed(2)}</span>
+              <span>Total (PKR)</span>
+              <span className="text-primary">{formatPkr(totalPrice + shippingFee)}</span>
             </div>
           </div>
         </div>

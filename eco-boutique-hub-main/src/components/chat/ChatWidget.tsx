@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchAdminChatThreads, fetchChatThread, sendChatMessage, type ChatPeer } from "@/lib/api";
+import { formatPkr } from "@/lib/money";
 import { toast } from "sonner";
 
 const ChatWidget = () => {
@@ -142,7 +143,7 @@ const ChatWidget = () => {
                                 )}
                                 <div className="min-w-0">
                                   <p className="line-clamp-1 font-medium">{m.product.name}</p>
-                                  <p>${m.product.price}</p>
+                                  <p>{formatPkr(m.product.price)}</p>
                                 </div>
                               </div>
                             </Link>

@@ -1,7 +1,24 @@
+import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Mail } from "lucide-react";
+import { toast } from "sonner";
 
-const Footer = () => (
+const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+const Footer = () => {
+  const [footerEmail, setFooterEmail] = useState("");
+
+  const submitFooterNewsletter = (e: FormEvent) => {
+    e.preventDefault();
+    if (!emailOk(footerEmail)) {
+      toast.error("Enter a valid email address");
+      return;
+    }
+    toast.success("Subscribed! Check your inbox soon.");
+    setFooterEmail("");
+  };
+
+  return (
   <footer className="bg-heading text-muted pt-16 pb-8">
     <div className="container-main">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
@@ -33,12 +50,18 @@ const Footer = () => (
         <div>
           <h4 className="font-heading font-semibold text-white mb-4">Newsletter</h4>
           <p className="text-sm mb-3">Get exclusive deals straight to your inbox.</p>
-          <div className="flex">
-            <input type="email" placeholder="Your email" className="flex-1 px-3 py-2 rounded-l-lg bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/40 focus:outline-none" />
-            <button className="px-4 py-2 rounded-r-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-dark transition-colors">
+          <form onSubmit={submitFooterNewsletter} className="flex">
+            <input
+              type="email"
+              value={footerEmail}
+              onChange={(e) => setFooterEmail(e.target.value)}
+              placeholder="Your email"
+              className="flex-1 px-3 py-2 rounded-l-lg bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/40 focus:outline-none"
+            />
+            <button type="submit" className="px-4 py-2 rounded-r-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-dark transition-colors" aria-label="Subscribe">
               <Mail className="w-4 h-4" />
             </button>
-          </div>
+          </form>
         </div>
       </div>
       <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
@@ -51,6 +74,7 @@ const Footer = () => (
       </div>
     </div>
   </footer>
-);
+  );
+};
 
 export default Footer;

@@ -74,11 +74,39 @@ export async function fetchProductReviews(productId: string): Promise<ApiReview[
   return r.json();
 }
 
+export type SavedAddress = {
+  id: string;
+  label: string;
+  name: string;
+  address: string;
+  city: string;
+  zip: string;
+  phone: string;
+  isDefault: boolean;
+};
+
+export type NotificationPrefs = {
+  orderUpdates: boolean;
+  promotional: boolean;
+  newProducts: boolean;
+  priceDrops: boolean;
+};
+
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
   role: "user" | "admin";
+  addresses?: SavedAddress[];
+  notificationPrefs?: NotificationPrefs;
+};
+
+export type OrderLineItem = {
+  productId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  image: string;
 };
 
 export type OrderSummary = {
@@ -89,6 +117,9 @@ export type OrderSummary = {
   items: number;
   product: string;
   payment: string;
+  itemsDetail?: OrderLineItem[];
+  shippingAddress?: { name?: string; phone?: string; address?: string; city?: string; zip?: string };
+  delivery?: string;
 };
 
 export type AdminOrder = {
@@ -146,6 +177,122 @@ export async function authMe(token: string): Promise<Response> {
   return fetch(`${apiOrigin}/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+}
+
+export async function updateUserProfile(name: string, token: string): Promise<AuthUser> {
+  const r = await fetch(`${apiOrigin}/api/auth/profile`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to update profile");
+  return data as AuthUser;
+}
+
+export async function changeUserPassword(currentPassword: string, newPassword: string, token: string): Promise<void> {
+  const r = await fetch(`${apiOrigin}/api/auth/password`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to change password");
+}
+
+export type AddressPayload = {
+  label?: string;
+  name: string;
+  address: string;
+  city: string;
+  zip?: string;
+  phone?: string;
+  isDefault?: boolean;
+};
+
+export async function addUserAddress(payload: AddressPayload, token: string): Promise<AuthUser> {
+  const r = await fetch(`${apiOrigin}/api/auth/addresses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to add address");
+  return data as AuthUser;
+}
+
+export async function updateUserAddress(
+  addrId: string,
+  payload: Partial<AddressPayload>,
+  token: string
+): Promise<AuthUser> {
+  const r = await fetch(`${apiOrigin}/api/auth/addresses/${encodeURIComponent(addrId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to update address");
+  return data as AuthUser;
+}
+
+export async function deleteUserAddress(addrId: string, token: string): Promise<AuthUser> {
+  const r = await fetch(`${apiOrigin}/api/auth/addresses/${encodeURIComponent(addrId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to delete address");
+  return data as AuthUser;
+}
+
+export async function setDefaultUserAddress(addrId: string, token: string): Promise<AuthUser> {
+  const r = await fetch(`${apiOrigin}/api/auth/addresses/${encodeURIComponent(addrId)}/default`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to set default");
+  return data as AuthUser;
+}
+
+export async function updateUserNotifications(prefs: Partial<NotificationPrefs>, token: string): Promise<AuthUser> {
+  const r = await fetch(`${apiOrigin}/api/auth/notifications`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(prefs),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to save preferences");
+  return data as AuthUser;
+}
+
+export async function deleteUserAccount(password: string, token: string): Promise<void> {
+  const r = await fetch(`${apiOrigin}/api/auth/account`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ password }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to delete account");
+}
+
+export async function createProductReview(
+  productId: string,
+  body: { rating: number; title?: string; text: string },
+  token: string
+): Promise<ApiReview> {
+  const r = await fetch(`${apiOrigin}/api/products/${encodeURIComponent(productId)}/reviews`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to submit review");
+  return data as ApiReview;
 }
 
 export async function fetchMyOrders(token: string): Promise<OrderSummary[]> {
@@ -226,6 +373,70 @@ export async function createProductWithImage(
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
+}
+
+export async function updateProductWithImage(
+  id: string,
+  formData: FormData,
+  token: string
+): Promise<Response> {
+  return fetch(`${apiOrigin}/api/products/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+}
+
+export async function deleteProduct(id: string, token: string): Promise<void> {
+  const r = await fetch(`${apiOrigin}/api/products/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to delete product");
+}
+
+export type AdminStats = {
+  orders: number;
+  customers: number;
+  products: number;
+  revenue: number;
+  ordersByStatus: Record<AdminOrder["status"], number>;
+  ordersToday: number;
+  outOfStock: number;
+  lowStock: number;
+  monthlyRevenue: Array<{ label: string; total: number }>;
+  monthlyRevenueNormalized: Array<{ label: string; total: number; value: number }>;
+  categoryRevenue: Array<{ name: string; revenue: number; percent: number }>;
+  recentCustomers: number;
+  avgOrderValue: number;
+};
+
+export async function fetchAdminStats(token: string): Promise<AdminStats> {
+  const r = await fetch(`${apiOrigin}/api/admin/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) throw new Error("Failed to load admin stats");
+  return r.json();
+}
+
+export type AdminCustomerRow = {
+  id: string;
+  name: string;
+  email: string;
+  orders: number;
+  spent: string;
+  joined: string;
+  status: "Active" | "VIP" | "Inactive";
+  avatar: string;
+};
+
+export async function fetchAdminCustomers(token: string): Promise<AdminCustomerRow[]> {
+  const r = await fetch(`${apiOrigin}/api/admin/customers`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) throw new Error("Failed to load customers");
+  return r.json();
 }
 
 export type ChatPeer = {

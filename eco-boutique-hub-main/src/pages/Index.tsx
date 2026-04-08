@@ -1,12 +1,18 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Zap, Star, ChevronRight, Truck, ShieldCheck, RotateCcw, Headphones } from "lucide-react";
+import {
+  ArrowRight, Zap, Star, ChevronRight, Truck, ShieldCheck, RotateCcw, Headphones,
+  Sparkles, Gift, Leaf, Percent, Clock, BadgeCheck,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/data/products";
 import { categories, testimonials } from "@/data/products";
 import { fetchProducts, productsQueryKey } from "@/lib/api";
-import { useState, useEffect, useMemo } from "react";
+import { formatPkr } from "@/lib/money";
+import { useStoreSettings } from "@/contexts/StoreSettingsContext";
+import { useState, useEffect, useMemo, type FormEvent } from "react";
+import { toast } from "sonner";
 
 const CountdownTimer = () => {
   const [time, setTime] = useState({ h: 5, m: 23, s: 47 });
@@ -41,18 +47,41 @@ const floatingProducts = [
   { img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop", delay: 0.6, x: "65%", y: "65%" },
 ];
 
+const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
 const Index = () => {
+  const { settings } = useStoreSettings();
+  const freeShippingMinPkr = settings.freeShippingMinimumPkr;
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+
+  const submitNewsletter = (e: FormEvent) => {
+    e.preventDefault();
+    if (!emailOk(newsletterEmail)) {
+      toast.error("Enter a valid email address");
+      return;
+    }
+    toast.success("Thanks! You'll hear from us with deals and new arrivals.");
+    setNewsletterEmail("");
+  };
+
   const { data: catalog = [], isLoading } = useQuery({
     queryKey: productsQueryKey,
     queryFn: fetchProducts,
   });
 
-  const { featured, flashSale, bestSellers } = useMemo(() => {
+  const { featured, flashSale, bestSellers, landingStats } = useMemo(() => {
     const list = catalog.length ? catalog : [];
+    const cats = new Set(list.map((p) => p.category)).size;
+    const onSale = list.filter((p) => p.oldPrice).length;
     return {
       featured: list.slice(0, 4),
       flashSale: list.filter((p) => p.oldPrice).slice(0, 4),
       bestSellers: list.filter((p) => p.rating >= 4.5).slice(0, 4),
+      landingStats: {
+        products: list.length,
+        categories: cats || categories.length,
+        onSale,
+      },
     };
   }, [catalog]);
 
@@ -136,7 +165,7 @@ const Index = () => {
                 transition={{ delay: 0.3 }}
                 className="text-white/80 text-lg md:text-xl mb-8 max-w-lg leading-relaxed"
               >
-                Discover premium products at unbeatable prices. Free shipping on orders over $50.
+                Discover premium products at unbeatable prices. Nationwide delivery — free standard shipping on orders over {formatPkr(freeShippingMinPkr)}.
               </motion.p>
 
               <motion.div
@@ -238,12 +267,202 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Live pulse strip */}
+      <section className="relative overflow-hidden border-b border-primary/20 bg-gradient-to-r from-primary/15 via-primary/8 to-primary/15">
+        <div
+          className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08)_40%,transparent)] bg-[length:200%_100%] animate-shimmer pointer-events-none"
+          aria-hidden
+        />
+        <div className="container-main py-3 relative z-10">
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm">
+            <span className="inline-flex items-center gap-2 text-heading font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              Live store — new arrivals weekly
+            </span>
+            <span className="hidden sm:inline text-muted-foreground">|</span>
+            <span className="text-muted-foreground">
+              <span className="font-semibold text-primary tabular-nums">{isLoading ? "—" : landingStats.products}</span> products ·{" "}
+              <span className="font-semibold text-primary tabular-nums">{isLoading ? "—" : landingStats.categories}</span> categories ·{" "}
+              <span className="font-semibold text-destructive tabular-nums">{isLoading ? "—" : landingStats.onSale}</span> on sale
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick highlights */}
+      <section className="border-b border-border bg-card/80 backdrop-blur-sm">
+        <div className="container-main py-10 md:py-14">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {[
+              {
+                icon: Sparkles,
+                title: "Curated picks",
+                desc: "Our team highlights quality, value, and trending styles every week.",
+                accent: "from-violet-500/20 to-primary/10",
+              },
+              {
+                icon: Percent,
+                title: "Real deals",
+                desc: "Flash sales and member-only drops — no fake strikethroughs.",
+                accent: "from-amber-500/20 to-primary/10",
+              },
+              {
+                icon: Gift,
+                title: "Rewards feel",
+                desc: `Free shipping over ${formatPkr(freeShippingMinPkr)}, COD & mobile wallets, and support that replies.`,
+                accent: "from-rose-500/15 to-primary/10",
+              },
+            ].map((item, i) => (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ delay: i * 0.1, duration: 0.45 }}
+                className={`relative rounded-2xl p-6 md:p-7 overflow-hidden border border-border bg-gradient-to-br ${item.accent} card-hover`}
+              >
+                <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-primary/10 blur-2xl" />
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-xl bg-card shadow-sm border border-border flex items-center justify-center mb-4">
+                    <item.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-heading font-bold text-lg text-heading mb-2">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Shop collections — large visual cards */}
+      <section className="section-padding bg-background">
+        <div className="container-main">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-2">Collections</p>
+              <h2 className="text-2xl md:text-3xl font-heading font-bold text-heading">Shop the mood</h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md">Jump into our most-loved corners of the store — each curated for a different vibe.</p>
+            </div>
+            <Link to="/products" className="text-sm text-primary font-medium flex items-center gap-1 hover:gap-2 transition-all shrink-0">
+              Browse everything <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            {[
+              {
+                title: "Tech & gadgets",
+                subtitle: "Electronics",
+                href: "/products?category=Electronics",
+                img: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&h=600&fit=crop",
+              },
+              {
+                title: "Style edit",
+                subtitle: "Fashion",
+                href: "/products?category=Fashion",
+                img: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&h=600&fit=crop",
+              },
+              {
+                title: "Cozy home",
+                subtitle: "Home & Living",
+                href: "/products?category=Home%20%26%20Living",
+                img: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=600&fit=crop",
+              },
+            ].map((c, i) => (
+              <motion.div
+                key={c.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+              >
+                <Link
+                  to={c.href}
+                  className="group relative block aspect-[4/5] md:aspect-[3/4] rounded-3xl overflow-hidden border border-border shadow-lg"
+                >
+                  <img src={c.img} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6 md:p-7">
+                    <p className="text-xs font-semibold text-white/80 uppercase tracking-wider mb-1">{c.subtitle}</p>
+                    <h3 className="text-xl md:text-2xl font-heading font-bold text-white mb-3">{c.title}</h3>
+                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-white group-hover:gap-3 transition-all">
+                      Shop now <ArrowRight className="w-4 h-4" />
+                    </span>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why ShopVert */}
+      <section className="py-12 md:py-16 border-y border-border bg-muted/30">
+        <div className="container-main">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-2">Why us</p>
+              <h2 className="text-2xl md:text-3xl font-heading font-bold text-heading mb-4">Built for shoppers who hate clutter</h2>
+              <p className="text-muted-foreground text-sm md:text-base leading-relaxed mb-8">
+                Clean listings, honest pricing, and a checkout that does not fight you. We focus on products you will actually use — not endless scroll fatigue.
+              </p>
+              <ul className="space-y-4">
+                {[
+                  { icon: BadgeCheck, text: "Verified-quality picks and clear product details" },
+                  { icon: Clock, text: "Fast dispatch and tracking you can trust" },
+                  { icon: Leaf, text: "Eco-conscious options where it matters most" },
+                ].map((row, i) => (
+                  <li key={i} className="flex gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <row.icon className="w-5 h-5 text-primary" />
+                    </div>
+                    <p className="text-sm text-body pt-2">{row.text}</p>
+                  </li>
+                ))}
+              </ul>
+              <Link to="/auth" className="inline-flex mt-8 btn-gradient text-sm">
+                Create free account
+              </Link>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="relative rounded-3xl overflow-hidden aspect-square max-w-md mx-auto lg:max-w-none border border-border shadow-xl"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&h=800&fit=crop"
+                alt=""
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 via-transparent to-transparent" />
+              <div className="absolute bottom-6 left-6 right-6 rounded-2xl bg-card/95 backdrop-blur-md border border-border p-4 shadow-lg">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">This week</p>
+                    <p className="font-heading font-bold text-heading">Member favorites</p>
+                  </div>
+                  <Link to="/products" className="text-xs font-semibold text-primary whitespace-nowrap">View →</Link>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* Trust badges */}
       <section className="border-b border-border bg-card">
         <div className="container-main py-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: Truck, title: "Free Shipping", desc: "On orders over $50" },
+              { icon: Truck, title: "Free Shipping", desc: `On orders over ${formatPkr(freeShippingMinPkr)}` },
               { icon: ShieldCheck, title: "Secure Payment", desc: "100% protected" },
               { icon: RotateCcw, title: "Easy Returns", desc: "30-day return policy" },
               { icon: Headphones, title: "24/7 Support", desc: "Here to help" },
@@ -395,10 +614,18 @@ const Index = () => {
         <div className="container-main text-center relative z-10">
           <h2 className="text-2xl md:text-3xl font-heading font-bold text-white mb-3">Stay in the Loop</h2>
           <p className="text-white/70 mb-6 max-w-md mx-auto">Subscribe for exclusive deals, new arrivals, and insider-only discounts.</p>
-          <div className="flex max-w-md mx-auto">
-            <input type="email" placeholder="Enter your email" className="flex-1 px-4 py-3 rounded-l-xl bg-white/20 border border-white/30 text-white placeholder:text-white/50 text-sm focus:outline-none backdrop-blur-sm" />
-            <button className="px-6 py-3 rounded-r-xl bg-white text-primary font-heading font-semibold text-sm hover:bg-white/90 transition-colors">Subscribe</button>
-          </div>
+          <form onSubmit={submitNewsletter} className="flex max-w-md mx-auto">
+            <input
+              type="email"
+              value={newsletterEmail}
+              onChange={(e) => setNewsletterEmail(e.target.value)}
+              placeholder="Enter your email"
+              className="flex-1 px-4 py-3 rounded-l-xl bg-white/20 border border-white/30 text-white placeholder:text-white/50 text-sm focus:outline-none backdrop-blur-sm"
+            />
+            <button type="submit" className="px-6 py-3 rounded-r-xl bg-white text-primary font-heading font-semibold text-sm hover:bg-white/90 transition-colors">
+              Subscribe
+            </button>
+          </form>
         </div>
       </section>
     </div>

@@ -7,6 +7,7 @@ import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/data/products";
 import { categories } from "@/data/products";
 import { fetchProducts, productsQueryKey } from "@/lib/api";
+import { formatPkr } from "@/lib/money";
 import { Link } from "react-router-dom";
 import { Star, ShoppingCart, Heart } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
@@ -80,7 +81,7 @@ const Products = () => {
 
   const activeFilters = [
     ...(selectedCategory ? [{ label: selectedCategory, clear: () => setSelectedCategory("") }] : []),
-    ...(priceRange[1] < priceCeiling ? [`Under $${priceRange[1]}`] : []).map(l => ({ label: l, clear: () => setPriceRange([0, priceCeiling]) })),
+    ...(priceRange[1] < priceCeiling ? [`Under ${formatPkr(priceRange[1])}`] : []).map((l) => ({ label: l, clear: () => setPriceRange([0, priceCeiling]) })),
     ...(minRating > 0 ? [{ label: `${minRating}+ Stars`, clear: () => setMinRating(0) }] : []),
     ...(inStockOnly ? [{ label: "In Stock", clear: () => setInStockOnly(false) }] : []),
   ];
@@ -132,12 +133,12 @@ const Products = () => {
         <div>
           <input type="range" min={0} max={priceCeiling} value={Math.min(priceRange[1], priceCeiling)} onChange={(e) => setPriceRange([0, Number(e.target.value)])} className="w-full accent-primary" />
           <div className="flex justify-between text-xs text-muted-foreground mt-1">
-            <span>$0</span><span>${Math.min(priceRange[1], priceCeiling)}</span>
+            <span>{formatPkr(0)}</span><span>{formatPkr(Math.min(priceRange[1], priceCeiling))}</span>
           </div>
           <div className="grid grid-cols-2 gap-2 mt-3">
             {priceQuickPick.map((v) => (
               <button key={v} onClick={() => setPriceRange([0, v])} className={`text-xs px-2 py-1.5 rounded-lg border transition-colors ${priceRange[1] === v ? "bg-primary/10 text-primary border-primary/30" : "border-border hover:bg-secondary"}`}>
-                Under ${v}
+                Under {formatPkr(v)}
               </button>
             ))}
           </div>
@@ -194,8 +195,8 @@ const Products = () => {
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-heading font-bold text-primary text-lg">${p.price}</span>
-              {p.oldPrice && <span className="text-xs text-muted-foreground line-through">${p.oldPrice}</span>}
+              <span className="font-heading font-bold text-primary text-lg">{formatPkr(p.price)}</span>
+              {p.oldPrice != null && <span className="text-xs text-muted-foreground line-through">{formatPkr(p.oldPrice)}</span>}
               {disc > 0 && <span className="text-[10px] font-bold text-destructive">-{disc}%</span>}
             </div>
             <div className="flex items-center gap-2">

@@ -2,22 +2,38 @@ import { useParams, Link } from "react-router-dom";
 import { Star, Minus, Plus, ShoppingCart, Heart, ChevronRight, Share2, Truck, ShieldCheck, RotateCcw, Check, ThumbsUp, MessageSquare } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import ProductCard from "@/components/ProductCard";
-import { fetchProduct, fetchProductReviews, fetchProducts, productsQueryKey, sendChatMessage, type ApiReview } from "@/lib/api";
+import {
+  createProductReview,
+  fetchProduct,
+  fetchProductReviews,
+  fetchProducts,
+  productsQueryKey,
+  sendChatMessage,
+  type ApiReview,
+} from "@/lib/api";
+import { formatPkr } from "@/lib/money";
+import { useStoreSettings } from "@/contexts/StoreSettingsContext";
 import { toast } from "sonner";
 
 const ProductDetail = () => {
   const { id = "" } = useParams();
   const { addToCart, wishlist, toggleWishlist } = useCart();
   const { token } = useAuth();
+  const { settings } = useStoreSettings();
   const [qty, setQty] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
   const [selectedImage, setSelectedImage] = useState(0);
   const [reviewFilter, setReviewFilter] = useState("all");
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewText, setReviewText] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: catalog = [] } = useQuery({
     queryKey: productsQueryKey,
@@ -86,6 +102,36 @@ const ProductDetail = () => {
   const isWished = wishlist.includes(product.id);
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : 0;
   const related = catalog.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+
+  const submitReview = async () => {
+    if (!token) {
+      toast.error("Please sign in to write a review");
+      return;
+    }
+    if (!reviewText.trim()) {
+      toast.error("Please write your review");
+      return;
+    }
+    setReviewSubmitting(true);
+    try {
+      await createProductReview(
+        id,
+        { rating: reviewRating, title: reviewTitle.trim() || undefined, text: reviewText.trim() },
+        token
+      );
+      toast.success("Thanks for your review");
+      setReviewTitle("");
+      setReviewText("");
+      setReviewRating(5);
+      await queryClient.invalidateQueries({ queryKey: ["reviews", id] });
+      await queryClient.invalidateQueries({ queryKey: ["product", id] });
+      await queryClient.invalidateQueries({ queryKey: productsQueryKey });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not submit review");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   const handleShareToChat = async () => {
     if (!token) {
@@ -185,11 +231,11 @@ const ProductDetail = () => {
 
           {/* Price */}
           <div className="flex items-baseline gap-3 mb-6 p-4 rounded-xl bg-secondary/50">
-            <span className="text-3xl font-heading font-bold text-primary">${product.price}</span>
+            <span className="text-3xl font-heading font-bold text-primary">{formatPkr(product.price)}</span>
             {product.oldPrice && (
               <>
-                <span className="text-lg text-muted-foreground line-through">${product.oldPrice}</span>
-                <span className="px-2.5 py-1 rounded-lg bg-destructive/10 text-destructive text-xs font-bold">Save ${(product.oldPrice - product.price).toFixed(2)}</span>
+                <span className="text-lg text-muted-foreground line-through">{formatPkr(product.oldPrice)}</span>
+                <span className="px-2.5 py-1 rounded-lg bg-destructive/10 text-destructive text-xs font-bold">Save {formatPkr(product.oldPrice - product.price)}</span>
               </>
             )}
           </div>
@@ -248,7 +294,7 @@ const ProductDetail = () => {
           {/* Trust Badges */}
           <div className="grid grid-cols-3 gap-3 pt-6 border-t border-border">
             {[
-              { icon: Truck, label: "Free Shipping", desc: "Over $50" },
+              { icon: Truck, label: "Free Shipping", desc: `Over ${formatPkr(settings.freeShippingMinimumPkr)}` },
               { icon: ShieldCheck, label: "Secure Payment", desc: "Encrypted" },
               { icon: RotateCcw, label: "Easy Returns", desc: "30 days" },
             ].map(b => (
@@ -400,24 +446,63 @@ const ProductDetail = () => {
               {/* Write Review */}
               <div className="mt-8 pt-8 border-t border-border">
                 <h4 className="font-heading font-semibold mb-4">Write a Review</h4>
+                {!token ? (
+                  <p className="text-sm text-muted-foreground mb-4">
+                    <Link to="/auth" className="text-primary font-medium hover:underline">
+                      Sign in
+                    </Link>{" "}
+                    to leave a review.
+                  </p>
+                ) : null}
                 <div className="space-y-4 max-w-lg">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Your Rating</label>
                     <div className="flex gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <button key={i} className="p-1"><Star className="w-6 h-6 text-border hover:fill-amber-400 hover:text-amber-400 transition-colors" /></button>
+                        <button
+                          key={i}
+                          type="button"
+                          disabled={!token}
+                          onClick={() => setReviewRating(i + 1)}
+                          className="p-1 disabled:opacity-40"
+                        >
+                          <Star
+                            className={`w-6 h-6 transition-colors ${
+                              i < reviewRating ? "fill-amber-400 text-amber-400" : "text-border hover:text-amber-400"
+                            }`}
+                          />
+                        </button>
                       ))}
                     </div>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Review Title</label>
-                    <input placeholder="Sum up your review" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <input
+                      value={reviewTitle}
+                      onChange={(e) => setReviewTitle(e.target.value)}
+                      disabled={!token}
+                      placeholder="Sum up your review"
+                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Your Review</label>
-                    <textarea placeholder="Share your experience..." className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 h-24 resize-none" />
+                    <textarea
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      disabled={!token}
+                      placeholder="Share your experience..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 h-24 resize-none disabled:opacity-50"
+                    />
                   </div>
-                  <button className="btn-gradient text-sm">Submit Review</button>
+                  <button
+                    type="button"
+                    disabled={!token || reviewSubmitting}
+                    onClick={submitReview}
+                    className="btn-gradient text-sm disabled:opacity-50"
+                  >
+                    {reviewSubmitting ? "Submitting…" : "Submit Review"}
+                  </button>
                 </div>
               </div>
             </div>
