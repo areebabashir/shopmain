@@ -13,7 +13,7 @@ const MobileNav = () => {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-green-100/95 border-t border-green-200">
       <div className="flex justify-around py-2">
         {items.map((item) => {
           const active = pathname === item.to;

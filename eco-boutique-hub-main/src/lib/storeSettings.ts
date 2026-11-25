@@ -14,6 +14,7 @@ export type StoreSettings = {
   standardShippingPkr: number;
   /** Extra fee for express delivery (PKR), added on top of standard when not free. */
   expressShippingPkr: number;
+  logoUrl?: string;
 };
 
 export const STORE_SETTINGS_STORAGE_KEY = "shopvert_store_settings_v2";
@@ -31,6 +32,7 @@ export const defaultStoreSettings = (): StoreSettings => ({
   freeShippingMinimumPkr: 5000,
   standardShippingPkr: 250,
   expressShippingPkr: 500,
+  logoUrl: "",
 });
 
 function parseNum(v: unknown, fallback: number): number {
@@ -53,6 +55,7 @@ export function getStoreSettings(): StoreSettings {
         freeShippingMinimumPkr: parseNum(o.freeShippingMinimumPkr, base.freeShippingMinimumPkr),
         standardShippingPkr: parseNum(o.standardShippingPkr, base.standardShippingPkr),
         expressShippingPkr: parseNum(o.expressShippingPkr, base.expressShippingPkr),
+        logoUrl: typeof o.logoUrl === "string" ? o.logoUrl : base.logoUrl,
       };
     }
     const legacy = localStorage.getItem(LEGACY_ADMIN_KEY);

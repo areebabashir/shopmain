@@ -8,5 +8,6 @@ router.post("/", userController.authenticate, orderController.create);
 router.get("/my", userController.authenticate, orderController.myOrders);
 router.get("/", userController.authenticate, userController.authorizeAdmin, orderController.listAll);
 router.patch("/:id/status", userController.authenticate, userController.authorizeAdmin, orderController.updateStatus);
+router.patch("/:id/payment", userController.authenticate, userController.authorizeAdmin, orderController.updatePaymentStatus);
 
 module.exports = router;

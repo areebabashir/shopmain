@@ -41,12 +41,16 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-card border-b border-border backdrop-blur-sm">
+    <header className="sticky top-0 z-50 bg-green-100/95 border-b border-green-200 backdrop-blur-sm">
       <div className="container-main flex items-center justify-between h-16 gap-4">
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-heading font-bold text-sm">{brandIconLetter}</span>
-          </div>
+          {settings.logoUrl ? (
+            <img src={settings.logoUrl} alt={brandName} className="w-8 h-8 object-contain" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-heading font-bold text-sm">{brandIconLetter}</span>
+            </div>
+          )}
           <span className="font-heading font-bold text-xl text-heading hidden sm:block truncate max-w-[200px]">{brandName}</span>
         </Link>
 
@@ -58,7 +62,7 @@ const Header = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search products..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-green-700 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-green-700/30 transition-all"
             />
           </div>
         </form>
@@ -130,21 +134,24 @@ const Header = () => {
         </button>
       </div>
 
+      <div className="md:hidden container-main pb-3">
+        <form onSubmit={handleSearch}>
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search products..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-green-700 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-green-700/30 transition-all"
+            />
+          </div>
+        </form>
+      </div>
+
       {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-card animate-fade-in">
+        <div className="md:hidden border-t border-green-200 bg-green-100/95 animate-fade-in">
           <div className="container-main py-4 space-y-3">
-            <form onSubmit={handleSearch}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-            </form>
             {[
               { to: "/", label: "Home" },
               { to: "/products", label: "Products" },

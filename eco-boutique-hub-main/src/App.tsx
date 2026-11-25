@@ -14,6 +14,8 @@ import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
+import Payment from "./pages/Payment";
+import PaymentReturn from "./pages/PaymentReturn";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Wishlist from "./pages/Wishlist";
@@ -61,6 +63,22 @@ const App = () => (
                   <Route path="/product/:id" element={<ProductDetail />} />
                   <Route path="/cart" element={<Cart />} />
                   <Route path="/checkout" element={<Checkout />} />
+                  <Route
+                    path="/payment"
+                    element={
+                      <ProtectedRoute>
+                        <Payment />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/payment/return"
+                    element={
+                      <ProtectedRoute>
+                        <PaymentReturn />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/order-success" element={<OrderSuccess />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/wishlist" element={<Wishlist />} />

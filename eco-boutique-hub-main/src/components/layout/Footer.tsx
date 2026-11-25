@@ -2,11 +2,15 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
+import { useStoreSettings } from "@/contexts/StoreSettingsContext";
 
 const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 const Footer = () => {
   const [footerEmail, setFooterEmail] = useState("");
+  const { settings } = useStoreSettings();
+  const brandName = settings.storeName?.trim() || "ShopVert";
+  const brandIconLetter = brandName.trim().slice(0, 1).toUpperCase() || "S";
 
   const submitFooterNewsletter = (e: FormEvent) => {
     e.preventDefault();
@@ -24,10 +28,14 @@ const Footer = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-heading font-bold text-sm">S</span>
-            </div>
-            <span className="font-heading font-bold text-xl text-white">ShopVert</span>
+            {settings.logoUrl ? (
+              <img src={settings.logoUrl} alt={brandName} className="w-8 h-8 object-contain" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-heading font-bold text-sm">{brandIconLetter}</span>
+              </div>
+            )}
+            <span className="font-heading font-bold text-xl text-white">{brandName}</span>
           </div>
           <p className="text-sm leading-relaxed">Your go-to destination for premium products at unbeatable prices. Quality guaranteed.</p>
         </div>

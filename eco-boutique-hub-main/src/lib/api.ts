@@ -117,6 +117,9 @@ export type OrderSummary = {
   items: number;
   product: string;
   payment: string;
+  paymentStatus?: "pending" | "paid" | "failed";
+  paymentStatusLabel?: string;
+  paymentConfirmed?: boolean;
   itemsDetail?: OrderLineItem[];
   shippingAddress?: { name?: string; phone?: string; address?: string; city?: string; zip?: string };
   delivery?: string;
@@ -129,10 +132,14 @@ export type AdminOrder = {
   phone: string;
   product: string;
   amount: string;
-  status: "Processing" | "In Transit" | "Delivered" | "Cancelled";
+  status: "Awaiting Payment" | "Processing" | "In Transit" | "Delivered" | "Cancelled";
   date: string;
   address: string;
   payment: string;
+  paymentStatus?: "pending" | "paid" | "failed";
+  paymentStatusLabel?: string;
+  paymentConfirmed?: boolean;
+  isGatewayPayment?: boolean;
   items: number;
 };
 
@@ -329,6 +336,24 @@ export async function updateAdminOrderStatus(
   return data as AdminOrder;
 }
 
+export async function updateAdminOrderPayment(
+  id: string,
+  paymentStatus: "paid" | "failed",
+  token: string
+): Promise<AdminOrder> {
+  const r = await fetch(`${apiOrigin}/api/orders/${encodeURIComponent(id)}/payment`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ paymentStatus }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to update payment");
+  return data as AdminOrder;
+}
+
 export async function createOrder(
   payload: {
     items: Array<{ productId: string; quantity: number }>;
@@ -362,6 +387,24 @@ export async function initiateGatewayPayment(
     },
     body: JSON.stringify({ orderId }),
   });
+}
+
+export async function completeGatewayPayment(
+  orderId: string,
+  success: boolean,
+  token: string
+): Promise<AdminOrder> {
+  const r = await fetch(`${apiOrigin}/api/payments/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ orderId, success }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to update payment");
+  return data as AdminOrder;
 }
 
 export async function createProductWithImage(
@@ -515,3 +558,75 @@ export async function sendChatMessage(
   if (!r.ok) throw new Error(typeof data.message === "string" ? data.message : "Failed to send message");
   return data as ChatMessage;
 }
+
+export async function fetchSettings(): Promise<any> {
+  const r = await fetch(`${apiOrigin}/api/settings`);
+  if (!r.ok) throw new Error("Failed to load settings");
+  return r.json();
+}
+
+export async function updateSettings(formData: FormData, token: string): Promise<any> {
+  const r = await fetch(`${apiOrigin}/api/settings`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(typeof data.message === "string" ? data.message : "Failed to update settings");
+  }
+  return r.json();
+}
+
+export interface Banner {
+  _id: string;
+  imageUrl: string;
+  title: string;
+  subtitle: string;
+  link: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export const bannersQueryKey = ["banners"] as const;
+
+export async function fetchBanners(): Promise<Banner[]> {
+  const r = await fetch(`${apiOrigin}/api/banners`);
+  if (!r.ok) throw new Error("Failed to load banners");
+  return r.json();
+}
+
+export async function createBanner(formData: FormData, token: string): Promise<Banner> {
+  const r = await fetch(`${apiOrigin}/api/banners`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(typeof data.message === "string" ? data.message : "Failed to create banner");
+  }
+  return r.json();
+}
+
+export async function updateBanner(id: string, formData: FormData, token: string): Promise<Banner> {
+  const r = await fetch(`${apiOrigin}/api/banners/${id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(typeof data.message === "string" ? data.message : "Failed to update banner");
+  }
+  return r.json();
+}
+
+export async function deleteBanner(id: string, token: string): Promise<void> {
+  const r = await fetch(`${apiOrigin}/api/banners/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) throw new Error("Failed to delete banner");
+}
+

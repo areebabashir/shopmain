@@ -28,7 +28,7 @@ exports.stats = async (req, res) => {
     const avgOrderValue = nonCancelledAgg[0]?.n
       ? Math.round((nonCancelledAgg[0].total / nonCancelledAgg[0].n) * 100) / 100
       : 0;
-    const ordersByStatus = { Processing: 0, "In Transit": 0, Delivered: 0, Cancelled: 0 };
+    const ordersByStatus = { "Awaiting Payment": 0, Processing: 0, "In Transit": 0, Delivered: 0, Cancelled: 0 };
     for (const row of statusAgg) {
       if (row._id && ordersByStatus[row._id] !== undefined) {
         ordersByStatus[row._id] = row.count;

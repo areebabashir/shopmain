@@ -19,6 +19,7 @@ const Checkout = () => {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ name: "", phone: "", address: "", city: "", zip: "", delivery: "standard", payment: "cod" });
   const [shippingPrefilled, setShippingPrefilled] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (shippingPrefilled || !user?.addresses?.length) return;
@@ -63,6 +64,7 @@ const Checkout = () => {
       payment: form.payment,
       shippingFee: fee,
     };
+    setSubmitting(true);
     try {
       const res = await createOrder(payload, token);
       const data = await res.json().catch(() => ({}));
@@ -71,23 +73,41 @@ const Checkout = () => {
         return;
       }
       const createdOrderId = typeof data.id === "string" ? data.id : "";
-      if ((form.payment === "easypaisa" || form.payment === "jazcash") && createdOrderId) {
+      const isGateway = form.payment === "easypaisa" || form.payment === "jazcash";
+
+      if (isGateway && createdOrderId) {
         const gatewayRes = await initiateGatewayPayment(form.payment as "easypaisa" | "jazcash", createdOrderId, token);
         const gatewayData = await gatewayRes.json().catch(() => ({}));
         if (!gatewayRes.ok || typeof gatewayData.redirectUrl !== "string") {
-          toast.error(typeof gatewayData.message === "string" ? gatewayData.message : "Failed to initiate gateway payment");
+          const msg = typeof gatewayData.message === "string" ? gatewayData.message : "Failed to start payment";
+          toast.error(msg);
           return;
         }
         clearCart();
+        sessionStorage.setItem("pendingPaymentOrderId", createdOrderId);
+        toast.message(`Redirecting to ${form.payment === "easypaisa" ? "EasyPaisa" : "JazzCash"}…`);
         window.location.href = gatewayData.redirectUrl;
         return;
       }
       clearCart();
       toast.success("Order placed successfully");
-      navigate("/order-success");
+      navigate("/order-success", { state: { orderId: createdOrderId } });
     } catch {
       toast.error("Network error");
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const placeOrderLabel = () => {
+    if (submitting) {
+      if (form.payment === "easypaisa") return "Going to EasyPaisa…";
+      if (form.payment === "jazcash") return "Going to JazzCash…";
+      return "Placing order…";
+    }
+    if (step === 2 && form.payment === "easypaisa") return "Pay with EasyPaisa";
+    if (step === 2 && form.payment === "jazcash") return "Pay with JazzCash";
+    return "Place Order";
   };
 
   const canNext = () => {
@@ -174,7 +194,12 @@ const Checkout = () => {
                       {form.payment === o.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                     </div>
                     <span className="text-lg">{o.icon}</span>
-                    <span className="text-sm font-medium text-heading">{o.label}</span>
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-heading">{o.label}</span>
+                      {(o.id === "easypaisa" || o.id === "jazcash") && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">You will be redirected to pay securely</p>
+                      )}
+                    </div>
                     <input type="radio" name="payment" value={o.id} checked={form.payment === o.id} onChange={() => update("payment", o.id)} className="sr-only" />
                   </label>
                 ))}
@@ -189,7 +214,9 @@ const Checkout = () => {
             {step < 2 ? (
               <button onClick={() => canNext() && setStep(step + 1)} disabled={!canNext()} className="btn-gradient disabled:opacity-50 disabled:hover:scale-100">Continue</button>
             ) : (
-              <button onClick={handleSubmit} className="btn-gradient">Place Order</button>
+              <button onClick={handleSubmit} disabled={submitting} className="btn-gradient disabled:opacity-60">
+                {placeOrderLabel()}
+              </button>
             )}
           </div>
         </div>

@@ -18,11 +18,16 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: { type: mongoose.Schema.Types.Mixed, default: {} },
     delivery: { type: String, default: "standard" },
     payment: { type: String, default: "cod" },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed"],
+      default: "pending",
+    },
     shippingFee: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["Processing", "In Transit", "Delivered", "Cancelled"],
+      enum: ["Awaiting Payment", "Processing", "In Transit", "Delivered", "Cancelled"],
       default: "Processing",
     },
   },

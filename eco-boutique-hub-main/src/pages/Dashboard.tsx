@@ -63,6 +63,7 @@ const defaultNotif: NotificationPrefs = {
 const statusColor = (s: string) => {
   if (s === "Delivered") return "bg-primary/10 text-primary";
   if (s === "In Transit") return "bg-blue-100 text-blue-600";
+  if (s === "Awaiting Payment") return "bg-orange-100 text-orange-700";
   return "bg-amber-100 text-amber-700";
 };
 
@@ -558,7 +559,12 @@ const Dashboard = () => {
                           <div>
                             <p className="font-mono text-sm font-semibold text-heading">{o.id.slice(0, 8)}…</p>
                             <p className="text-xs text-muted-foreground">{o.product} · {o.items} item(s)</p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">{o.date} · {o.payment}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {o.date} · {o.payment}
+                              {o.paymentStatusLabel && o.paymentStatus !== "paid" && (
+                                <span className="text-orange-600 font-medium"> · {o.paymentStatusLabel}</span>
+                              )}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 sm:flex-col sm:items-end">

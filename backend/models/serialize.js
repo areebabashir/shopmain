@@ -71,10 +71,34 @@ const formatReview = (doc) => {
   };
 };
 
+const formatPaymentMethod = (payment) => {
+  if (payment === "cod") return "Cash on Delivery";
+  if (payment === "easypaisa") return "EasyPaisa";
+  if (payment === "jazcash" || payment === "jazzcash") return "JazzCash";
+  if (payment === "card") return "Credit Card";
+  if (payment === "wallet") return "Digital Wallet";
+  return payment || "—";
+};
+
+const isGatewayPayment = (payment) => {
+  const p = String(payment || "").toLowerCase();
+  return p === "easypaisa" || p === "jazcash" || p === "jazzcash";
+};
+
+const formatPaymentStatus = (payment, paymentStatus) => {
+  const status = paymentStatus || "pending";
+  if (status === "paid") return "Paid";
+  if (status === "failed") return "Failed";
+  if (String(payment || "").toLowerCase() === "cod") return "Pay on delivery";
+  return "Unpaid";
+};
+
 const formatOrder = (doc) => {
   const o = asObject(doc);
   const itemCount = (o.items || []).reduce((s, i) => s + (i.quantity || 0), 0);
   const created = o.createdAt ? new Date(o.createdAt) : new Date();
+  const paymentMethod = formatPaymentMethod(o.payment);
+  const paymentStatus = o.paymentStatus || "pending";
   return {
     id: String(o._id),
     date: created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
@@ -82,18 +106,10 @@ const formatOrder = (doc) => {
     total: o.totalAmount,
     items: itemCount,
     product: o.items?.[0]?.name || "Order",
-    payment:
-      o.payment === "cod"
-        ? "Cash on Delivery"
-        : o.payment === "easypaisa"
-          ? "EasyPaisa"
-          : o.payment === "jazcash"
-            ? "JazzCash"
-        : o.payment === "card"
-          ? "Credit Card"
-          : o.payment === "wallet"
-            ? "Digital Wallet"
-            : o.payment || "—",
+    payment: paymentMethod,
+    paymentStatus,
+    paymentStatusLabel: formatPaymentStatus(o.payment, paymentStatus),
+    paymentConfirmed: paymentStatus === "paid" || String(o.payment || "").toLowerCase() === "cod",
     itemsDetail: o.items,
     shippingAddress: o.shippingAddress || {},
     delivery: o.delivery,
@@ -117,18 +133,11 @@ const formatOrderAdmin = (orderLean) => {
     status: o.status,
     date: created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     address: [o.shippingAddress?.address, o.shippingAddress?.city, o.shippingAddress?.zip].filter(Boolean).join(", ") || "—",
-    payment:
-      o.payment === "cod"
-        ? "Cash on Delivery"
-        : o.payment === "easypaisa"
-          ? "EasyPaisa"
-          : o.payment === "jazcash"
-            ? "JazzCash"
-        : o.payment === "card"
-          ? "Credit Card"
-          : o.payment === "wallet"
-            ? "Wallet"
-            : o.payment || "—",
+    payment: formatPaymentMethod(o.payment),
+    paymentStatus: o.paymentStatus || "pending",
+    paymentStatusLabel: formatPaymentStatus(o.payment, o.paymentStatus),
+    paymentConfirmed: (o.paymentStatus || "pending") === "paid" || String(o.payment || "").toLowerCase() === "cod",
+    isGatewayPayment: isGatewayPayment(o.payment),
     items: o.items?.reduce((s, i) => s + i.quantity, 0) || 0,
     raw: o,
   };

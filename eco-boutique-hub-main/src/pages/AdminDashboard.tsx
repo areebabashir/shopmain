@@ -5,18 +5,27 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  bannersQueryKey,
+  createBanner,
   createProductWithImage,
+  deleteBanner,
   deleteProduct,
   fetchAdminCustomers,
   fetchAdminOrders,
   fetchAdminStats,
+  fetchBanners,
   fetchProducts,
   productsQueryKey,
   updateAdminOrderStatus,
+  updateAdminOrderPayment,
+  updateBanner,
   updateProductWithImage,
   userInitials,
+  updateSettings,
+  mediaUrl,
   type AdminCustomerRow,
   type AdminOrder,
+  type Banner,
 } from "@/lib/api";
 import {
   Banknote, ShoppingCart, Users, Package, TrendingUp, TrendingDown,
@@ -25,7 +34,7 @@ import {
   Settings, Download, RefreshCw,
   CreditCard, MapPin, Phone, ChevronRight, AlertCircle, CheckCircle,
   XCircle, Truck, FileText, Globe, UserCheck,
-  LayoutDashboard, ChevronLeft, LogOut, Menu, Home
+  LayoutDashboard, ChevronLeft, LogOut, Menu, Home, Image,
 } from "lucide-react";
 import { categories, type Product } from "@/data/products";
 import { formatPkr, stripMoneyToNumber } from "@/lib/money";
@@ -38,6 +47,7 @@ const sidebarNav = [
   { id: "overview", icon: LayoutDashboard, label: "Dashboard" },
   { id: "orders", icon: ShoppingCart, label: "Orders" },
   { id: "products", icon: Package, label: "Products" },
+  { id: "banners", icon: Image, label: "Banners" },
   { id: "customers", icon: Users, label: "Customers" },
   { id: "analytics", icon: BarChart3, label: "Analytics" },
   { id: "settings", icon: Settings, label: "Settings" },
@@ -46,6 +56,7 @@ const sidebarNav = [
 const statusStyle = (s: string) => {
   if (s === "Delivered") return "bg-primary/10 text-primary";
   if (s === "In Transit") return "bg-blue-100 text-blue-600";
+  if (s === "Awaiting Payment") return "bg-orange-100 text-orange-700";
   if (s === "Processing") return "bg-amber-100 text-amber-700";
   if (s === "Cancelled") return "bg-destructive/10 text-destructive";
   if (s === "Active") return "bg-primary/10 text-primary";
@@ -54,9 +65,16 @@ const statusStyle = (s: string) => {
   return "bg-muted text-muted-foreground";
 };
 
+const paymentStatusStyle = (s?: string) => {
+  if (s === "paid") return "bg-primary/10 text-primary";
+  if (s === "failed") return "bg-destructive/10 text-destructive";
+  return "bg-orange-100 text-orange-700";
+};
+
 const statusIcon = (s: string) => {
   if (s === "Delivered") return CheckCircle;
   if (s === "In Transit") return Truck;
+  if (s === "Awaiting Payment") return AlertCircle;
   if (s === "Processing") return Clock;
   return XCircle;
 };
@@ -92,6 +110,10 @@ const AdminDashboard = () => {
     queryKey: ["adminCustomers", token],
     queryFn: () => fetchAdminCustomers(token!),
     enabled: Boolean(token),
+  });
+  const { data: banners = [], isLoading: bannersLoading } = useQuery({
+    queryKey: bannersQueryKey,
+    queryFn: fetchBanners,
   });
   const topProducts = useMemo(
     () => [...apiProducts].sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 5),
@@ -244,14 +266,89 @@ const AdminDashboard = () => {
   const [newImage, setNewImage] = useState<File | null>(null);
   const [productSubmitting, setProductSubmitting] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [settingsSubmitting, setSettingsSubmitting] = useState(false);
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
+  const [bannerTitle, setBannerTitle] = useState("");
+  const [bannerSubtitle, setBannerSubtitle] = useState("");
+  const [bannerLink, setBannerLink] = useState("");
+  const [bannerActive, setBannerActive] = useState(true);
+  const [bannerImage, setBannerImage] = useState<File | null>(null);
+  const [bannerSubmitting, setBannerSubmitting] = useState(false);
+  const bannerImageRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (activeTab === "settings") setStoreSettings(getStoreSettings());
   }, [activeTab]);
+
+  const resetBannerForm = () => {
+    setEditingBannerId(null);
+    setBannerTitle("");
+    setBannerSubtitle("");
+    setBannerLink("");
+    setBannerActive(true);
+    setBannerImage(null);
+    if (bannerImageRef.current) bannerImageRef.current.value = "";
+  };
+
+  const loadBannerForEdit = (b: Banner) => {
+    setEditingBannerId(b._id);
+    setBannerTitle(b.title);
+    setBannerSubtitle(b.subtitle);
+    setBannerLink(b.link);
+    setBannerActive(b.isActive);
+    setBannerImage(null);
+    if (bannerImageRef.current) bannerImageRef.current.value = "";
+  };
+
+  const submitBanner = async () => {
+    if (!token) return;
+    if (!editingBannerId && !bannerImage) {
+      toast.error("Please upload a banner image");
+      return;
+    }
+    setBannerSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append("title", bannerTitle);
+      fd.append("subtitle", bannerSubtitle);
+      fd.append("link", bannerLink);
+      fd.append("isActive", String(bannerActive));
+      if (bannerImage) fd.append("image", bannerImage);
+      if (editingBannerId) {
+        await updateBanner(editingBannerId, fd, token);
+        toast.success("Banner updated");
+      } else {
+        await createBanner(fd, token);
+        toast.success("Banner added to homepage hero");
+      }
+      await queryClient.invalidateQueries({ queryKey: bannersQueryKey });
+      resetBannerForm();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save banner");
+    } finally {
+      setBannerSubmitting(false);
+    }
+  };
+
+  const removeBanner = async (id: string) => {
+    if (!token) return;
+    if (!window.confirm("Delete this banner?")) return;
+    try {
+      await deleteBanner(id, token);
+      await queryClient.invalidateQueries({ queryKey: bannersQueryKey });
+      if (editingBannerId === id) resetBannerForm();
+      toast.success("Banner deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete banner");
+    }
+  };
 
   const resetProductForm = () => {
     setEditingProductId(null);
@@ -323,10 +420,37 @@ const AdminDashboard = () => {
     toast.success("Customers exported");
   };
 
-  const persistStoreSettings = () => {
-    saveStoreSettings(storeSettings);
-    refreshSettings();
-    toast.success("Store settings saved — storefront header and shipping rules updated.");
+  const persistStoreSettings = async () => {
+    if (!token) return;
+    setSettingsSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append("storeName", storeSettings.storeName);
+      fd.append("contactEmail", storeSettings.contactEmail);
+      fd.append("phone", storeSettings.phone);
+      fd.append("address", storeSettings.address);
+      fd.append("freeShippingMinimumPkr", String(storeSettings.freeShippingMinimumPkr));
+      fd.append("standardShippingPkr", String(storeSettings.standardShippingPkr));
+      fd.append("expressShippingPkr", String(storeSettings.expressShippingPkr));
+      if (logoFile) {
+        fd.append("logo", logoFile);
+      }
+      
+      const savedData = await updateSettings(fd, token);
+      await refreshSettings();
+      toast.success("Store settings saved — storefront header and shipping rules updated.");
+      setLogoFile(null);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+      
+      // Update local state with the new logo URL
+      if (savedData && savedData.logoUrl) {
+        setStoreSettings(prev => ({ ...prev, logoUrl: mediaUrl(savedData.logoUrl) }));
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update settings");
+    } finally {
+      setSettingsSubmitting(false);
+    }
   };
 
   const adminBrandName = storeSettings.storeName?.trim() || "ShopVert";
@@ -376,6 +500,25 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleMarkPaymentReceived = async (orderId: string) => {
+    if (!token) {
+      toast.error("Session expired. Sign in again.");
+      return;
+    }
+    setUpdatingPaymentId(orderId);
+    try {
+      const updated = await updateAdminOrderPayment(orderId, "paid", token);
+      toast.success("Payment marked as received — order moved to Processing");
+      queryClient.invalidateQueries({ queryKey: ["adminOrders"] });
+      queryClient.invalidateQueries({ queryKey: ["adminStats"] });
+      setSelectedOrder((prev) => (prev && prev.id === orderId ? updated : prev));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update payment");
+    } finally {
+      setUpdatingPaymentId(null);
+    }
+  };
+
   const filteredCustomers = adminCustomers.filter(
     (c: AdminCustomerRow) =>
       customerSearch === "" ||
@@ -400,9 +543,13 @@ const AdminDashboard = () => {
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
-              <span className="text-primary-foreground font-bold text-xs leading-none">{adminBrandMark}</span>
-            </div>
+            {storeSettings.logoUrl ? (
+              <img src={storeSettings.logoUrl} alt={adminBrandName} className="w-9 h-9 object-contain" />
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
+                <span className="text-primary-foreground font-bold text-xs leading-none">{adminBrandMark}</span>
+              </div>
+            )}
             {(sidebarOpen || mobile) && (
               <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-heading font-bold text-heading text-lg truncate">
                 {adminBrandName}
@@ -803,7 +950,7 @@ const AdminDashboard = () => {
                       <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search orders..." className="pl-9 pr-4 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 w-48" />
                     </div>
                     <div className="flex gap-1">
-                      {["All", "Delivered", "In Transit", "Processing", "Cancelled"].map(f => (
+                      {["All", "Awaiting Payment", "Processing", "In Transit", "Delivered", "Cancelled"].map(f => (
                         <button key={f} onClick={() => setOrderFilter(f)} className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${orderFilter === f ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary"}`}>{f}</button>
                       ))}
                     </div>
@@ -833,17 +980,24 @@ const AdminDashboard = () => {
                             </td>
                             <td className="py-3 px-3 text-body text-xs">{o.product}</td>
                             <td className="py-3 px-3 font-semibold text-xs">{o.amount}</td>
-                            <td className="py-3 px-3"><span className="text-[10px] text-muted-foreground flex items-center gap-1"><CreditCard className="w-3 h-3" />{o.payment}</span></td>
+                            <td className="py-3 px-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1"><CreditCard className="w-3 h-3" />{o.payment}</span>
+                                <span className={`inline-flex w-fit text-[9px] font-semibold px-2 py-0.5 rounded-full ${paymentStatusStyle(o.paymentStatus)}`}>
+                                  {o.paymentStatusLabel || (o.paymentStatus === "paid" ? "Paid" : "Unpaid")}
+                                </span>
+                              </div>
+                            </td>
                             <td className="py-3 px-3">
                               <div className="flex items-center gap-2">
                                 <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full ${statusStyle(o.status)}`}><Icon className="w-3 h-3" />{o.status}</span>
                                 <select
                                   value={o.status}
-                                  disabled={updatingOrderId === o.id}
+                                  disabled={updatingOrderId === o.id || (o.isGatewayPayment && o.paymentStatus !== "paid" && o.status === "Awaiting Payment")}
                                   onChange={(e) => handleOrderStatusUpdate(o.id, e.target.value as AdminOrder["status"])}
                                   className="text-[10px] px-2 py-1 rounded border border-border bg-background"
                                 >
-                                  {["Processing", "In Transit", "Delivered", "Cancelled"].map((s) => (
+                                  {["Awaiting Payment", "Processing", "In Transit", "Delivered", "Cancelled"].map((s) => (
                                     <option key={s} value={s}>{s}</option>
                                   ))}
                                 </select>
@@ -1161,6 +1315,133 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {/* Banners — homepage hero */}
+          {activeTab === "banners" && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="bg-card rounded-2xl p-6 md:p-8 border border-border card-hover">
+                <h3 className="font-heading font-semibold text-lg mb-1">
+                  {editingBannerId ? "Edit banner" : "Add hero banner"}
+                </h3>
+                <p className="text-xs text-muted-foreground mb-6">
+                  Banners appear on the homepage hero with a gradient overlay. Recommended size: 1920×800px or wider landscape image.
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Headline</label>
+                    <input
+                      value={bannerTitle}
+                      onChange={(e) => setBannerTitle(e.target.value)}
+                      placeholder="Summer Sale — Up to 60% Off"
+                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Badge / subtitle</label>
+                    <input
+                      value={bannerSubtitle}
+                      onChange={(e) => setBannerSubtitle(e.target.value)}
+                      placeholder="New arrivals this week"
+                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Shop Now link (optional)</label>
+                    <input
+                      value={bannerLink}
+                      onChange={(e) => setBannerLink(e.target.value)}
+                      placeholder="/products or https://…"
+                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Banner image {!editingBannerId && "*"}</label>
+                    <input
+                      ref={bannerImageRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => setBannerImage(e.target.files?.[0] ?? null)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => bannerImageRef.current?.click()}
+                      className="w-full py-8 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-secondary/50 transition-colors text-sm text-muted-foreground"
+                    >
+                      {bannerImage ? bannerImage.name : editingBannerId ? "Change image (optional)" : "Click to upload image"}
+                    </button>
+                    {bannerImage && (
+                      <img
+                        src={URL.createObjectURL(bannerImage)}
+                        alt="Preview"
+                        className="mt-3 w-full h-36 object-cover rounded-xl border border-border"
+                      />
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bannerActive}
+                      onChange={(e) => setBannerActive(e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    <span>Show on homepage</span>
+                  </label>
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={submitBanner}
+                      disabled={bannerSubmitting}
+                      className="btn-gradient text-sm px-6 py-2.5 disabled:opacity-60"
+                    >
+                      {bannerSubmitting ? "Saving…" : editingBannerId ? "Update banner" : "Add banner"}
+                    </button>
+                    {editingBannerId && (
+                      <button type="button" onClick={resetBannerForm} className="text-sm px-6 py-2.5 rounded-xl border border-border hover:bg-secondary transition-colors">
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-card rounded-2xl p-6 md:p-8 border border-border">
+                <h3 className="font-heading font-semibold text-lg mb-4">Your banners</h3>
+                {bannersLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : banners.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No banners yet. Add one to replace the default hero.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {banners.map((b) => (
+                      <div key={b._id} className="flex gap-4 p-3 rounded-xl border border-border bg-secondary/20">
+                        <img
+                          src={mediaUrl(b.imageUrl)}
+                          alt={b.title || "Banner"}
+                          className="w-28 h-20 object-cover rounded-lg shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-heading truncate">{b.title || "Untitled"}</p>
+                          {b.subtitle && <p className="text-xs text-muted-foreground truncate">{b.subtitle}</p>}
+                          <span className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${b.isActive ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                            {b.isActive ? "Live" : "Hidden"}
+                          </span>
+                          <div className="flex gap-2 mt-2">
+                            <button type="button" onClick={() => loadBannerForEdit(b)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Edit">
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button type="button" onClick={() => removeBanner(b._id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-destructive transition-colors" title="Delete">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Settings — PKR store + shipping (drives cart & checkout) */}
           {activeTab === "settings" && (
             <div className="max-w-2xl space-y-6">
@@ -1170,9 +1451,29 @@ const AdminDashboard = () => {
                   All prices on the site are <strong className="text-heading">Pakistani Rupees (PKR)</strong>. Shipping rules below apply to cart and checkout.
                 </p>
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" />Store name</label>
-                    <input value={storeSettings.storeName} onChange={(e) => setStoreSettings((s) => ({ ...s, storeName: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" />Store name</label>
+                      <input value={storeSettings.storeName} onChange={(e) => setStoreSettings((s) => ({ ...s, storeName: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">Store Logo</label>
+                      <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml" className="hidden" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border overflow-hidden">
+                          {logoFile ? (
+                            <img src={URL.createObjectURL(logoFile)} alt="Logo Preview" className="w-full h-full object-contain" />
+                          ) : storeSettings.logoUrl ? (
+                            <img src={storeSettings.logoUrl} alt="Current Logo" className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="text-xs font-bold text-muted-foreground">{brandMarkFromStoreName(storeSettings.storeName)}</span>
+                          )}
+                        </div>
+                        <button type="button" onClick={() => logoInputRef.current?.click()} className="text-xs px-3 py-2 rounded-xl border border-border hover:bg-secondary transition-colors font-medium">
+                          {logoFile ? "Change" : "Upload Logo"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
@@ -1209,7 +1510,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3 mt-8">
-                  <button type="button" onClick={persistStoreSettings} className="btn-gradient text-sm px-6 py-2.5">Save settings</button>
+                  <button type="button" onClick={persistStoreSettings} disabled={settingsSubmitting} className="btn-gradient text-sm px-6 py-2.5 disabled:opacity-60">{settingsSubmitting ? "Saving…" : "Save settings"}</button>
                   <p className="text-xs text-muted-foreground self-center">Checkout & cart read these values immediately after save.</p>
                 </div>
               </div>
@@ -1237,6 +1538,11 @@ const AdminDashboard = () => {
                   <div className="flex items-center gap-2">{(() => { const Icon = statusIcon(selectedOrder.status); return <Icon className="w-4 h-4" />; })()}<span className="text-sm font-semibold">{selectedOrder.status}</span></div>
                   <span className={`text-[10px] font-semibold px-3 py-1 rounded-full ${statusStyle(selectedOrder.status)}`}>{selectedOrder.status}</span>
                 </div>
+                {selectedOrder.isGatewayPayment && selectedOrder.paymentStatus !== "paid" && (
+                  <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs text-orange-800">
+                    <strong>Payment not received.</strong> This EasyPaisa/JazzCash order is not confirmed until payment is marked as received.
+                  </div>
+                )}
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Customer</h4>
                   <div className="flex items-center gap-3 mb-3">
@@ -1256,24 +1562,37 @@ const AdminDashboard = () => {
                       { label: "Items", value: String(selectedOrder.items) },
                       { label: "Amount", value: selectedOrder.amount },
                       { label: "Payment", value: selectedOrder.payment },
+                      { label: "Payment status", value: selectedOrder.paymentStatusLabel || selectedOrder.paymentStatus || "—" },
                       { label: "Date", value: selectedOrder.date },
                     ].map(f => (
                       <div key={f.label} className="flex justify-between py-2 border-b border-border last:border-0"><span className="text-xs text-muted-foreground">{f.label}</span><span className="text-xs font-medium text-heading">{f.value}</span></div>
                     ))}
                   </div>
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-col gap-2 pt-2">
+                  {selectedOrder.isGatewayPayment && selectedOrder.paymentStatus !== "paid" && (
+                    <button
+                      type="button"
+                      onClick={() => handleMarkPaymentReceived(selectedOrder.id)}
+                      disabled={updatingPaymentId === selectedOrder.id}
+                      className="w-full btn-gradient text-xs !py-2.5 disabled:opacity-60"
+                    >
+                      {updatingPaymentId === selectedOrder.id ? "Updating…" : "Mark payment received"}
+                    </button>
+                  )}
+                  <div className="flex gap-2">
                   <select
                     value={selectedOrder.status}
                     onChange={(e) => handleOrderStatusUpdate(selectedOrder.id, e.target.value as AdminOrder["status"])}
                     disabled={updatingOrderId === selectedOrder.id}
                     className="btn-gradient text-xs flex-1 !py-2.5"
                   >
-                    {["Processing", "In Transit", "Delivered", "Cancelled"].map((s) => (
+                    {["Awaiting Payment", "Processing", "In Transit", "Delivered", "Cancelled"].map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
                   <button type="button" className="flex-1 text-xs px-4 py-2.5 rounded-xl border border-border hover:bg-secondary transition-colors font-medium print:hidden" onClick={() => window.print()}>Print / PDF</button>
+                  </div>
                 </div>
               </div>
             </motion.div>
